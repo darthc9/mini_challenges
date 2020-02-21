@@ -1,39 +1,42 @@
 # adapted from https://github.com/stephengrice/education/blob/master/BST/bst.py
 
+# a Binary Search Tree is a structure where the key in the left child is less the the key in the node
+# and the key in the right child is bigger than the key in the node
+
 
 class Node(object):
-    def __init__(self, d):
-        self.data = d
+    def __init__(self, k, d):
+        self.key = k
+        self.data = d       # the data is separate from the key and can be used as rank in some algorithms
         self.left = None
         self.right = None
+        
+    def find(self, k):
+        """ returns the node with given key or None if not found """
+        if self.key == k:
+            return self
+        elif k < self.key and self.left:
+            return self.left.find(k)
+        elif k > self.key and self.right:
+            return self.right.find(k)
+        return None
     
-    def insert(self, d):
-        if self.data == d:
-            return False
-        elif d < self.data:
-            if self.left:
-                return self.left.insert(d)
-            else:
-                self.left = Node(d)
-                return True
-        else:
-            if self.right:
-                return self.right.insert(d)
-            else:
-                self.right = Node(d)
-                return True
-    
-    def find(self, d):
-        if self.data == d:
-            return True
-        elif d < self.data and self.left:
-            return self.left.find(d)
-        elif d > self.data and self.right:
-            return self.right.find(d)
-        return False
-    
+    def isin(self, k):
+        """ returns True if the key k is stored in a node in the tree """
+        return self.find(k) is not None
+
+    def get_min_key(self):
+        """ return the node with minimum key value found in that tree """
+        current = self
+        
+        while current.left is not None:
+            current = current.left
+        
+        return current
+
     def preorder(self, l):
-        l.append(self.data)
+        """ populate the list l with the (key,data) of a pre-order traversal output of the tree """
+        l.append((self.key, self.data))
         if self.left:
             self.left.preorder(l)
         if self.right:
@@ -41,49 +44,70 @@ class Node(object):
         return l
     
     def postorder(self, l):
+        """ populate the list l with the (key, data) of a post-order traversal output of the tree """
         if self.left:
             self.left.postorder(l)
         if self.right:
             self.right.postorder(l)
-        l.append(self.data)
+        l.append((self.key, self.data))
         return l
     
     def inorder(self, l):
+        """ populate the list l with the (key,data) of an in-order traversal output of the tree """
         if self.left:
             self.left.inorder(l)
-        l.append(self.data)
+        l.append((self.key, self.data))
         if self.right:
             self.right.inorder(l)
         return l
+
+
+def insert(node, key, data):
+    """ A utility function to insert a new node with given key in BST,
+        for existing keys accumulate the data rather than replace it. returns root """
+    
+    # If the tree is empty, return a new node
+    if node is None:
+        return Node(key, data)
+        
+    if node.key == key:
+        node.data += data  # accumulate data rather than replace it.
+    
+    # otherwise find a place to insert new node down the tree
+    elif key < node.key:
+        node.left = insert(node.left, key, data)
+    else:
+        node.right = insert(node.right, key, data)
+        
+    return node
 
 
 class BST(object):
     def __init__(self):
         self.root = None
     
-    # return True if successfully inserted, false if exists
-    def insert(self, d):
-        if self.root:
-            return self.root.insert(d)
-        else:
-            self.root = Node(d)
-            return True
+    def insert(self, key, data):
+        """ add a new node with key and data or find the existing node according to key
+            and accumulate (+=) the data in that pre-existing node """
+        self.root = insert(self.root, key, data)
     
-    # return True if d is found in tree, false otherwise
-    def find(self, d):
+    def isin(self, key):
+        """ return True if key is found in tree, false otherwise """
         if self.root:
-            return self.root.find(d)
+            return self.root.isin(key)
         else:
             return False
     
-    # return True if node successfully removed, False if not removed
-    def remove(self, d):
+    def remove(self, k):
+        """ remove a node with a given key k from the tree.
+            returns True if node was present """
+        
         # Case 1: Empty Tree?
-        if self.root == None:
+        if self.root is None:
             return False
         
         # Case 2: Deleting root node
-        if self.root.data == d:
+        if self.root.key == k:
             # Case 2.1: Root node has no children
             if self.root.left is None and self.root.right is None:
                 self.root = None
@@ -103,8 +127,8 @@ class BST(object):
                 while moveNode.left:
                     moveNodeParent = moveNode
                     moveNode = moveNode.left
-                self.root.data = moveNode.data
-                if moveNode.data < moveNodeParent.data:
+                self.root.key = moveNode.key
+                if moveNode.key < moveNodeParent.key:
                     moveNodeParent.left = None
                 else:
                     moveNodeParent.right = None
@@ -112,32 +136,32 @@ class BST(object):
         # Find node to remove
         parent = None
         node = self.root
-        while node and node.data != d:
+        while node and node.key != k:
             parent = node
-            if d < node.data:
+            if k < node.key:
                 node = node.left
-            elif d > node.data:
+            elif k > node.key:
                 node = node.right
         # Case 3: Node not found
-        if node == None or node.data != d:
+        if node is None or node.key != k:
             return False
         # Case 4: Node has no children
         elif node.left is None and node.right is None:
-            if d < parent.data:
+            if k < parent.key:
                 parent.left = None
             else:
                 parent.right = None
             return True
         # Case 5: Node has left child only
         elif node.left and node.right is None:
-            if d < parent.data:
+            if k < parent.key:
                 parent.left = node.left
             else:
                 parent.right = node.left
             return True
         # Case 6: Node has right child only
         elif node.left is None and node.right:
-            if d < parent.data:
+            if k < parent.key:
                 parent.left = node.right
             else:
                 parent.right = node.right
@@ -149,14 +173,14 @@ class BST(object):
             while moveNode.left:
                 moveNodeParent = moveNode
                 moveNode = moveNode.left
-            node.data = moveNode.data
+            node.key = moveNode.key
             if moveNode.right:
-                if moveNode.data < moveNodeParent.data:
+                if moveNode.key < moveNodeParent.key:
                     moveNodeParent.left = moveNode.right
                 else:
                     moveNodeParent.right = moveNode.right
             else:
-                if moveNode.data < moveNodeParent.data:
+                if moveNode.key < moveNodeParent.key:
                     moveNodeParent.left = None
                 else:
                     moveNodeParent.right = None
