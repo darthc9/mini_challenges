@@ -25,7 +25,7 @@ class Node(object):
         """ returns True if the key k is stored in a node in the tree """
         return self.find(k) is not None
 
-    def get_min_key(self):
+    def get_min_key_node(self):
         """ return the node with minimum key value found in that tree """
         current = self
         
@@ -82,11 +82,45 @@ def insert(node, key, data):
     return node
 
 
+def delete_node(root, key):
+    """ delete key and return new root of tree """
+
+    # empty tree
+    if root is None:
+        return root
+        
+    # smaller key lies in the left subtree
+    if key < root.key:
+        root.left = delete_node(root.left, key)
+    elif key > root.key:
+        root.right = delete_node(root.right, key)
+    else:
+        # this is the node with the key to be deleted
+        # Node with only one child or no child
+        if root.left is None:
+            return root.right
+        
+        elif root.right is None:
+            return root.left
+            
+        # Node with two children - replace node with the inorder successor
+        temp = root.right.get_min_key_node()
+        
+        # Copy the inorder successor's content to this node
+        root.key = temp.key
+        root.data = temp.data
+        
+        # Delete the inorder successor
+        root.right = delete_node(root.right, temp.key)
+    
+    return root
+
+
 class BST(object):
     def __init__(self):
         self.root = None
     
-    def insert(self, key, data):
+    def insert(self, key, data=0):
         """ add a new node with key and data or find the existing node according to key
             and accumulate (+=) the data in that pre-existing node """
         self.root = insert(self.root, key, data)
@@ -98,93 +132,12 @@ class BST(object):
         else:
             return False
     
-    def remove(self, k):
-        """ remove a node with a given key k from the tree.
-            returns True if node was present """
+    def find(self, key) -> Node:
+        return self.root.find(key)
         
-        # Case 1: Empty Tree?
-        if self.root is None:
-            return False
         
-        # Case 2: Deleting root node
-        if self.root.key == k:
-            # Case 2.1: Root node has no children
-            if self.root.left is None and self.root.right is None:
-                self.root = None
-                return True
-            # Case 2.2: Root node has left child
-            elif self.root.left and self.root.right is None:
-                self.root = self.root.left
-                return True
-            # Case 2.3: Root node has right child
-            elif self.root.left is None and self.root.right:
-                self.root = self.root.right
-                return True
-            # Case 2.4: Root node has two children
-            else:
-                moveNode = self.root.right
-                moveNodeParent = None
-                while moveNode.left:
-                    moveNodeParent = moveNode
-                    moveNode = moveNode.left
-                self.root.key = moveNode.key
-                if moveNode.key < moveNodeParent.key:
-                    moveNodeParent.left = None
-                else:
-                    moveNodeParent.right = None
-                return True
-        # Find node to remove
-        parent = None
-        node = self.root
-        while node and node.key != k:
-            parent = node
-            if k < node.key:
-                node = node.left
-            elif k > node.key:
-                node = node.right
-        # Case 3: Node not found
-        if node is None or node.key != k:
-            return False
-        # Case 4: Node has no children
-        elif node.left is None and node.right is None:
-            if k < parent.key:
-                parent.left = None
-            else:
-                parent.right = None
-            return True
-        # Case 5: Node has left child only
-        elif node.left and node.right is None:
-            if k < parent.key:
-                parent.left = node.left
-            else:
-                parent.right = node.left
-            return True
-        # Case 6: Node has right child only
-        elif node.left is None and node.right:
-            if k < parent.key:
-                parent.left = node.right
-            else:
-                parent.right = node.right
-            return True
-        # Case 7: Node has left and right child
-        else:
-            moveNodeParent = node
-            moveNode = node.right
-            while moveNode.left:
-                moveNodeParent = moveNode
-                moveNode = moveNode.left
-            node.key = moveNode.key
-            if moveNode.right:
-                if moveNode.key < moveNodeParent.key:
-                    moveNodeParent.left = moveNode.right
-                else:
-                    moveNodeParent.right = moveNode.right
-            else:
-                if moveNode.key < moveNodeParent.key:
-                    moveNodeParent.left = None
-                else:
-                    moveNodeParent.right = None
-            return True
+    def remove(self, key):
+        self.root = delete_node(self.root, key)
     
     # return list of data elements resulting from preorder tree traversal
     def preorder(self):
