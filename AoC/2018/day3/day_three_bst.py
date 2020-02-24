@@ -26,6 +26,7 @@ and space of O(M)
 
 import re
 import heapq
+import time
 import aoc_bst
 
 
@@ -185,6 +186,8 @@ def bst_ospf_puzzle_solution(filename: str) -> int:
     # rectangles right and left edges to a priority queue
     rectangles_edges_heap = read_claims_into_pq(filename)
 
+    start_time = time.time()
+    
     # for every X coordinate having edges in the queue create a BST of
     # horizontal segments along that column defined by that X coordinate
     column_segments_bst = aoc_bst.BST()
@@ -212,7 +215,10 @@ def bst_ospf_puzzle_solution(filename: str) -> int:
             
         # add the total area covered by multiple claims in this tree to total
         multi_rect_covered_area += col_num * area
-        
+
+    end_time = time.time()
+    print(f"The algorithm took {end_time - start_time} seconds to complete")
+    
     return multi_rect_covered_area
     
 

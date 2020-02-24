@@ -1,6 +1,7 @@
 import re
 import itertools
 import numpy as np
+import time
 
 class Claim:
     """ Parse a claim string """
@@ -35,7 +36,7 @@ class Claims:
         return Claim(line)
 
 
-def naive_puzzle_solution(filename: str) -> int:
+def np_puzzle_solution(filename: str) -> int:
     """
     parse claims file and return the intersecting area (in square inches)
 
@@ -44,21 +45,30 @@ def naive_puzzle_solution(filename: str) -> int:
 
     """
     
+    # read the file into memory:
+    with Claims(filename) as claims:
+        claims_list = [c for c in claims]
+
+    start_time = time.time()
+    
     def mark_claim_on_map(c, fm):
         fm[c.left_margin:c.left_margin + c.columns_n, c.top_margin:c.top_margin + c.rows_n] += 1
     
     FABRIC_SIZE = 1050  # a little larger than 1000
     fabric_map = np.zeros((FABRIC_SIZE, FABRIC_SIZE))
     
-    with Claims(filename) as claims:
-        for claim in claims:
-            mark_claim_on_map(claim, fabric_map)
+    for claim in claims_list:
+        mark_claim_on_map(claim, fabric_map)
     
     intersection_area = 0
     for square_inch_occupancy_num in itertools.chain.from_iterable(fabric_map):
         if square_inch_occupancy_num > 1:
             intersection_area += 1
     
+    end_time = time.time()
+    
+    print(f"The algorithm took {end_time - start_time} seconds to complete")
+
     return intersection_area
 
 
@@ -70,4 +80,4 @@ def run_doctests():
 
 
 if __name__ == "__main__":
-    run_doctests()
+    np_puzzle_solution("claims.txt")
