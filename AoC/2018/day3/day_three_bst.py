@@ -19,10 +19,11 @@ the solution outline:
 
 
 
-overall expected complexity of O(MlogM) time where M is the number of claims
+overall expected complexity of O(M*log(M)) time where M is the number of claims
 and space of O(M)
 
 """
+
 import re
 import heapq
 import aoc_bst
@@ -64,6 +65,7 @@ class Claim:
     def bottom_right_y(self):
         return self.top_margin + self.rows_n - 1
 
+
 class Claims:
     """ A Class to parse and iterate over the claims file """
     
@@ -85,158 +87,134 @@ class Claims:
         return Claim(line)
     
 
-ADD_POINT    = '+'
-REMOVE_POINT = '-'
+# to mark the points in the priority queue as the start of a square or the end of it:
+ADD_POINT = 1
+REMOVE_POINT = -1
+
 
 def read_claims_into_pq(filename: str):
-    """ read all the claims into a priority queue (key = X coord of endpoints) """
+    """ read all the claims into a priority queue (key = X coord of endpoints)
+        the queue stores tuples of the form:
+        (X coord, start or end of rectangle, (top y coord, bottom y coord))
+    """
     squares_endpoints = []
     
     with Claims(filename) as claims:
         for claim in claims:
-            x_start  = claim.top_left_x()
-            y_top    = claim.top_left_y()
+            x_start = claim.top_left_x()
+            y_top = claim.top_left_y()
             y_bottom = claim.bottom_left_y()
-            x_end    = claim.top_right_x()
+            x_end = claim.top_right_x()
             
             # adding left endpoints of square to queue
-            heapq.heappush(squares_endpoints, (x_start, ADD_POINT, (y_top, y_bottom)))
+            heapq.heappush(squares_endpoints, (x_start, ADD_POINT, (y_top, y_bottom + 1)))
 
             # adding right endpoints of square to queue
-            heapq.heappush(squares_endpoints, (x_end, REMOVE_POINT, (y_top, y_bottom)))
+            heapq.heappush(squares_endpoints, (x_end + 1, REMOVE_POINT, (y_top, y_bottom + 1)))
+
+            # note the end-segment-signal (value = -1) is placed on the next cell after the last cell
+            # hence the +1
 
     return squares_endpoints
 
 
-def print_end_points(hq):
-    last_x = -1
-    queues = {ADD_POINT: [], REMOVE_POINT: []}
-    
-    while hq:
-        this_x = hq[0][0]     # hq[0] = hq.top() - the minimum is always in index 0
-    
-        if this_x != last_x:
-            # print the lists and reset
-            print(f"for x = {last_x} the queues were:")
-            print(queues)
-            queues = {ADD_POINT: [], REMOVE_POINT: []}
-            last_x = this_x
-        else:
-            points = heapq.heappop(hq)
-            queues[points[1]].append((points[2][0], 1))       # top adds a segment to tree
-            queues[points[1]].append((points[2][1], -1))      # bottom removes that segment
-
-
 def calculate_requested_area_for_bst(bst: list):
-    """ given an inorder traveral of the segment BST of a single column,
-        calculate the area in that column that is covered by more than 1 square """
+    """ given an in-order traversal of the segment BST of a single column,
+        calculate the area in that column that is covered by more than 1 square
+    """
     
     last_segment = 0  # scan the column from index Y=0 upwards
-    sqaure_num = 0    # number of squares currently 'live' while scanning the column
+    square_num = 0    # number of squares currently 'live' while scanning the column
     area = 0          # the area covered by more than one claim in this column
     
     for segment in bst:
         segment_len = segment[0] - last_segment
         last_segment = segment[0]
-        if sqaure_num > 1:
+        if square_num > 1:
             area += segment_len
-        sqaure_num += segment[1]   # segment[1] is positive if claim boundary is opening, negative if closing
+        square_num += segment[1]   # segment[1] is positive if claim boundary is opening, negative if closing
         
     return area
 
 
-def add_segment_to_bst(bst, Y_coord, value):
+def add_segment_to_bst(bst, y_coord, value):
     """ add the Y_coord to the BST while allowing for segments to intersect
         in the case of intersection add the value to the node in the bst rather than replace the node
+        note: a +value signals the start of a square and a - value signals the end of that square
+        a 0 value in a BST node has no effect on the calculations and can be deleted
     """
-    bst.find((Y_coord, value))  # wrong !!! you can't know the value stored in the node.
+    bst.insert(y_coord, value)
+    # if the value is negative and it ends up accumulating to a 0-rank node delete that node
+    n = bst.find(y_coord)
+    if n and n.data == 0:
+        bst.remove(y_coord)
 
 
-def print_end_points_with_bst(hq):
-    last_x = -1
-    queues = {ADD_POINT: [], REMOVE_POINT: []}
-    bst = aoc_bst.BST()
+def process_rectangle_edge(segment_bst, add_or_remove_edge, y_top, y_bottom):
+    """ add or remove a vertical edge of a claim rectangle to the segment tree """
     
-    while hq:
-        this_x = hq[0][0]  # hq[0] = hq.top() - the minimum is always in index 0
+    # assuming add_or_remove_edge = 1 to signal adding an edge to the segment tree,
+    # and -1 to remove the same edge
+    # using insert() to add a segment to the tree and
+    # the same function with a flipped sign for the value will effectively remove it
+    # because insert() removes nodes with a value of 0
+    
+    segment_bst.insert(y_top, add_or_remove_edge * 1)
+    segment_bst.insert(y_bottom, add_or_remove_edge * -1)
+
+
+def all_segments_of_x(x, h):
+    """ given x generate all the segments in heap h for the given x coordinate """
+    while h and h[0][0] == x:
+        yield heapq.heappop(h)
         
-        if this_x != last_x:
-            # print the lists and reset
-            print(f"for x = {last_x} the Y segment tree inorder was:")
-            bstio = bst.inorder()
-            print(bstio)
-            area = calculate_requested_area_for_bst(bstio)
-            print(f"for which the requested area was = {area}")
-            last_x = this_x
-        else:
-            points = heapq.heappop(hq)
-            
-            if points[1] == ADD_POINT:
-                bst.insert((points[2][0], 1))
-                bst.insert((points[2][1], -1))
-            else:
-                bst.remove((points[2][0], 1))
-                bst.remove((points[2][1], -1))
+        
+def next_x_on_heap(h):
+    return h[0][0]  # the minimum X is always in index 0 in the heap
 
 
-def naive_puzzle_solution(filename: str) -> (int, int):
+def bst_ospf_puzzle_solution(filename: str) -> int:
     """
     parse claims file and return the intersecting area (in square inches)
-    returns:
-      total_intersecting_area, id_of_the_one_patch_without_intersection
-    
-    >>> naive_puzzle_solution("claims.txt")
-    (115304, 275)
-    
+    returns: total_intersecting_area
+
     """
+    multi_rect_covered_area = 0
+
+    # read and parse the input file, adding the
+    # rectangles right and left edges to a priority queue
+    rectangles_edges_heap = read_claims_into_pq(filename)
+
+    # for every X coordinate having edges in the queue create a BST of
+    # horizontal segments along that column defined by that X coordinate
+    column_segments_bst = aoc_bst.BST()
+    last_x = 0
+    area = 0
+
+    while rectangles_edges_heap:
+        last_x = next_x_on_heap(rectangles_edges_heap)
+        
+        # construct segment tree from all the segments of current x in the scan
+        for edge_points in all_segments_of_x(last_x, rectangles_edges_heap):
+            _, add_or_remove, y_coords = edge_points
+            y_top, y_bottom = y_coords
+            process_rectangle_edge(column_segments_bst, add_or_remove, y_top, y_bottom)
+            
+        # calculate the area covered by multiple claims in this vertical segment
+        ordered_list_of_segments = column_segments_bst.inorder()
+        area = calculate_requested_area_for_bst(ordered_list_of_segments)
+        
+        # calc the number of columns this tree spans over until the next one
+        col_num = 0
+        if rectangles_edges_heap:
+            col_num = next_x_on_heap(rectangles_edges_heap) - last_x
+            # note: last tree is only closing segments and does not contribute to area
+            
+        # add the total area covered by multiple claims in this tree to total
+        multi_rect_covered_area += col_num * area
+        
+    return multi_rect_covered_area
     
-    def mark_claim_on_map(c: Claim, fm: dict):
-        for column in range(c.columns_n):
-            for row in range(c.rows_n):
-                try:
-                    dict_key = (c.left_margin + column, c.top_margin + row)
-                    fm[dict_key] = fm.get(dict_key, int()) + 1
-                except IndexError as err:
-                    print("error: ", err)
-                    print(f"row:{c.left_margin + column} column:{c.top_margin + row}")
-                    
-    def claim_itersects(c: Claim, fm: dict) -> bool:
-        """ function checks if claim c intesects with any other claim in the map ..
-        ie. the square inches of the claim == 1 for all the squares of the claim
-        returns True of claim intersects with other claims  """
-        for column in range(c.columns_n):
-            for row in range(c.rows_n):
-                dict_key = (c.left_margin + column, c.top_margin + row)
-                if fm[dict_key] != 1:
-                    return True  # never marked or intersects with another
-        # else
-        return False
-        # if we reached here
-        # then all the claim's squares are marked with 1
-        # (only one claim was made)
-                
-    fabric_map = {}  # a map of the square inches laid claim to on the fabric
-
-    with Claims(filename) as claims:
-        for claim in claims:
-            mark_claim_on_map(claim, fabric_map)
-
-    # count intersecting square inch blocks:
-    intersection_area = 0
-    for (_row, _column), square_inch_occupancy_num in fabric_map.items():
-        if square_inch_occupancy_num > 1:
-            intersection_area += 1
-
-    # find the only patch that doesn't intersect other patches
-    with Claims(filename) as claims:
-        for claim in claims:
-            if not claim_itersects(claim, fabric_map):
-                return intersection_area, claim.claim_id   # there is only one claim that doesn't intersect.
-
-    return None, None   # should never get here.
-
-
 
 if __name__ == "__main__":
-    #print_end_points(read_claims_into_pq('testclaims.txt'))
-    print_end_points_with_bst(read_claims_into_pq('testclaims.txt'))
+    print(bst_ospf_puzzle_solution('claims.txt'))
